@@ -1,0 +1,61 @@
+// Trigger on Account object for after update event
+trigger AccountTrigger on Account (after update) {
+    // Check if the trigger event is after update
+    if(Trigger.isUpdate && Trigger.isAfter){
+        // Call the handler method to update related contacts
+        AccountTriggerHandler.updateRelatedConts(Trigger.New, Trigger.oldMap);
+    }
+}
+
+public class AccountTriggerHandler {
+    // Method to update related contacts when account phone is updated
+    public static void updateRelatedConts(List<Account> accList, Map<Id,Account> oldMap) {
+        try {
+            List<Contact> conList = new List<Contact>();
+            Map<Id,Account> accToAccountMap = new Map<Id,Account>();
+            
+            // Loop through the list of accounts
+            for(Account acc : accList) {
+                // Check if phone is updated
+                if(acc.Phone != null && oldMap != null && acc.Phone != oldMap.get(acc.Id).Phone) {
+                    // Add the account to the map
+                    accToAccountMap.put(acc.Id, acc);
+                }
+            }
+            
+            // Query related contacts
+            for(Contact cont : [SELECT Id, HomePhone, AccountId FROM Contact WHERE AccountId IN :accToAccountMap.keySet()]) {
+                // Check if the contact's account is in the map
+                if(accToAccountMap.containsKey(cont.AccountId)) {
+                    // Update the home phone of the contact
+                    cont.HomePhone = accToAccountMap.get(cont.AccountId).Phone;
+                    conList.add(cont);
+                }
+            }
+            
+            // Check if there are any contacts to update
+            if(!conList.isEmpty()) {
+                // Use Database.update for bulk DML operations
+                Database.SaveResult[] srList = Database.update(conList, false);
+                // Iterate through each returned result
+                for (Database.SaveResult sr : srList) {
+                    if (sr.isSuccess()) {
+                        // Operation was successful, so get the ID of the record that was processed
+                        System.debug('Successfully updated contact. Contact ID: ' + sr.getId());
+                    }
+                    else {
+                        // Operation failed, so get all errors                
+                        for(Database.Error err : sr.getErrors()) {
+                            System.debug('The following error has occurred.');                    
+                            System.debug(err.getStatusCode() + ': ' + err.getMessage());
+                            System.debug('Contact fields that affected this error: ' + err.getFields());
+                        }
+                    }
+                }
+            }
+        } catch(Exception e) {
+            // Log the error and handle it appropriately
+            System.debug('Error: ' + e.getMessage());
+        }
+    }
+}
