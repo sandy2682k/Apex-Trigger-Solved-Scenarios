@@ -1,0 +1,30 @@
+//If the Account phone is updated then populate below message in description.   
+
+// Trigger on Account object for before update event
+trigger AccountTrigger on Account (before update) {
+    // Check if the trigger event is an update
+    if(Trigger.isUpdate && Trigger.isBefore){
+        // Call the handler method to update the 'Description' field on the Account
+        AccountTriggerHandler.updateDescription(Trigger.New, Trigger.oldMap);
+    }
+}
+
+public class AccountTriggerHandler {
+    // Method to update the 'Description' field on the Account when the phone number is updated
+    public static void updateDescription(List<Account> accList, Map<Id, Account> oldMap){
+        try {
+            // Loop through the list of accounts
+            for(Account acc : accList){
+                // Check if the Account's phone number has been updated
+                if(acc.Phone != null && oldMap.get(acc.Id).Phone != null && !acc.Phone.equals(oldMap.get(acc.Id).Phone)){
+                    // Update the 'Description' field with the old and new phone numbers
+                    acc.Description = 'Phone is updated! Old Value : ' + oldMap.get(acc.Id).Phone + ' & New Value : ' + acc.Phone;
+                }
+            }
+        } catch(Exception e) {
+            // Log the error and handle it appropriately
+            System.debug('Error: ' + e.getMessage());
+        }
+    }
+}
+                           
