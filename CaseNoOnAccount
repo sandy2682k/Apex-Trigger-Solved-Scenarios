@@ -13,21 +13,29 @@ public class CaseTriggerHandler {
     // Method to update the 'Latest Case Number' field on the related Account when a new Case is created
     public static void populateLatestCaseNum(List<Case> caseList){
         try {
-            List<Account> accList = new List<Account>();
+            Map<Id, Case> accCaseMap = new Map<Id, Case>();
             
             // Loop through the list of cases
             for(Case cs : caseList){
                 // Check if the Case is related to an Account
                 if(cs.AccountId != null){
-                    Account acc = new Account();
-                    acc.id = cs.AccountId;
-                    acc.Latest_Case_Number__c = cs.CaseNumber;
-                    accList.add(acc);
+                    // Store the latest Case for each Account
+                    accCaseMap.put(cs.AccountId, cs);
                 }
             }
             
             // Check if there are any Accounts to update
-            if(!accList.isEmpty()){
+            if(!accCaseMap.isEmpty()){
+                List<Account> accList = new List<Account>();
+                
+                // Loop through the map of Accounts and Cases
+                for(Id accId : accCaseMap.keySet()){
+                    Account acc = new Account();
+                    acc.id = accId;
+                    acc.Latest_Case_Number__c = accCaseMap.get(accId).CaseNumber;
+                    accList.add(acc);
+                }
+                
                 // Use Database.update for bulk DML operations
                 Database.SaveResult[] srList = Database.update(accList, false);
                 
