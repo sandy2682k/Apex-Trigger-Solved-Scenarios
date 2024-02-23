@@ -1,0 +1,20 @@
+-------------Here are some examples of how to use DML statements and Database methods in Apex:---------------------
+
+// DML statement example
+List<Account> accounts = new List<Account>();
+// populate the list with some accounts
+insert accounts; // this will insert all the accounts or none
+
+------------------------------------------------------------------------------------
+
+// Database method example
+List<Account> accounts = new List<Account>();
+// populate the list with some accounts
+List<Database.SaveResult> results = Database.insert(accounts, false); // this will insert the accounts and allow partial updates
+for (Database.SaveResult result : results) {
+  if (result.isSuccess()) {
+    System.debug('Successfully inserted account: ' + result.getId());
+  } else {
+    System.debug('Failed to insert account: ' + result.getErrors());
+  }
+}
