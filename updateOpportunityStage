@@ -1,0 +1,61 @@
+//Requirement: Write a trigger on Account when Account Active field is updated from ‘Yes’
+to ‘No’ then check all opportunities associated with the account. Update all
+Opportunities Stage to close lost if stage not equal to close won.
+
+trigger AccountTrigger on Account (after update) {
+  // Call the handler method only for after update event
+  if(Trigger.isUpdate && Trigger.isAfter){
+    AccountTriggerHandler.updateOpportunityStage(Trigger.New, Trigger.oldMap);
+  }
+}
+
+public class AccountTriggerHandler {
+  // Define constants for opportunity stage names
+  public class Constants {
+    public static final String CLOSED_WON = 'Closed Won';
+    public static final String CLOSED_LOST = 'Closed Lost';
+  }
+
+  // Define a helper method to check if the Account Active field has changed
+  public static Boolean isAccountActiveChanged(Account acc, Map<Id, Account> oldMap) {
+    return acc != null && oldMap != null && acc.Active__c == 'No' && acc.Active__c != oldMap.get(acc.Id).Active__c;
+  }
+
+  public static void updateOpportunityStage(List<Account> accList, Map<Id, Account> oldMap) {
+    // Declare the try block from the beginning of the method
+    try {
+      List<Opportunity> oppList = new List<Opportunity>();
+      Set<Id> idSet = new Set<Id>();
+      // Loop through the updated accounts and collect the ids of the ones with Active field changed to No
+      for(Account acc : accList) {
+        if(isAccountActiveChanged(acc, oldMap)) {
+          idSet.add(acc.Id);
+        }
+      }
+      // Loop through the opportunities related to the accounts and update the stage to Closed Lost if not Closed Won
+      for(Opportunity opp : [SELECT Id, StageName FROM Opportunity WHERE AccountId IN : idSet]) {
+        if(opp != null && opp.StageName != Constants.CLOSED_WON && opp.StageName != Constants.CLOSED_LOST) {
+          opp.StageName = Constants.CLOSED_LOST;
+          oppList.add(opp);
+        }
+      }
+      // Perform bulk update of the opportunities with partial success option
+      if(oppList.size() > 0) {
+        // Use Database.update method with allOrNone parameter set to false
+        Database.SaveResult[] results = Database.update(oppList, false);
+        // Loop through the results and check for errors
+        for(Integer i = 0; i < results.size(); i++) {
+          // If the result is not successful, log the error
+          if(!results[i].isSuccess()) {
+            Database.Error error = results[i].getErrors()[0];
+            System.debug('Failed to update opportunity ' + oppList[i].Id + ' due to ' + error.getStatusCode() + ': ' + error.getMessage());
+          }
+        }
+      }
+    // Declare the catch block at the end of the method
+    } catch(Exception e) {
+      // Log the exception
+      System.debug('An unexpected error occurred: ' + e.getMessage());
+    }
+  }
+}
